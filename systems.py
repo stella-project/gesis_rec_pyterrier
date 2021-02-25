@@ -16,7 +16,9 @@ def _gesis_doc_iter():
             title = title[0] if type(title) is list else title
             abstract = obj.get('abstract') or ''
             abstract = abstract[0] if type(abstract) is list else abstract
-            yield {'docno': obj.get('id'), 'text': ' '.join([title, abstract])}
+            topic = obj.get('topic') or ''
+            topic = ' '.join(topic) if type(topic) is list else topic
+            yield {'docno': obj.get('id'), 'text': ' '.join([title, abstract, topic])}
 
 
 class Ranker(object):
@@ -54,7 +56,13 @@ class Recommender(object):
 
         with jsonlines.open('./data/gesis-search/documents/publication.jsonl') as reader:
             for obj in reader:
-                self.title_lookup[obj.get('id')] = obj.get('title')
+                title = obj.get('title') or ''
+                title = title[0] if type(title) is list else title
+                abstract = obj.get('abstract') or ''
+                abstract = abstract[0] if type(abstract) is list else abstract
+                topic = obj.get('topic') or ''
+                topic = ' '.join(topic) if type(topic) is list else topic
+                self.title_lookup[obj.get('id')] = ' '.join([title, abstract,topic])
 
     def recommend_datasets(self, item_id, page, rpp):
 

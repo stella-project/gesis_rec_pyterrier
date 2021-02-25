@@ -2,3 +2,4 @@ flask
 jsonlines
 pandas
 unidecode
+python-terrier

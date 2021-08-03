@@ -4,13 +4,13 @@ import pandas as pd
 import unidecode
 import pyterrier as pt
 if not pt.started():
-  pt.init()
+    pt.init()
 
 
 
 
-def _gesis_doc_iter():
-    with jsonlines.open('./data/gesis-search/datasets/dataset.jsonl') as reader:
+def _gesis_doc_iter(path):
+    with jsonlines.open(path) as reader:
         for obj in reader:
             title = obj.get('title') or ''
             title = title[0] if type(title) is list else title
@@ -43,14 +43,22 @@ class Ranker(object):
 class Recommender(object):
 
     def __init__(self):
-        self.idx = None
+        self.idx_publications = None
+        self.idx_datasets = None
         self.title_lookup = {}
 
     def index(self):
-        iter_indexer = pt.IterDictIndexer("./index")
-        doc_iter = _gesis_doc_iter()
+        iter_indexer = pt.IterDictIndexer("./index/publications")
+        doc_iter = _gesis_doc_iter('./data/gesis-search/documents/publication.jsonl')
         indexref = iter_indexer.index(doc_iter)
-        self.idx = pt.IndexFactory.of(indexref)
+        self.idx_publications = pt.IndexFactory.of(indexref)
+
+
+        iter_indexer = pt.IterDictIndexer("./index/datasets")
+        doc_iter = _gesis_doc_iter('./data/gesis-search/datasets/dataset.jsonl')
+        indexref = iter_indexer.index(doc_iter)
+        self.idx_datasets = pt.IndexFactory.of(indexref)
+
 
         with jsonlines.open('./data/gesis-search/documents/publication.jsonl') as reader:
             for obj in reader:
@@ -66,7 +74,7 @@ class Recommender(object):
 
         if doc_title is not None:
             topics = pd.DataFrame.from_dict({'qid': [0], 'query': [doc_title]})
-            retr = pt.BatchRetrieve(self.idx, controls={"wmodel": "TF_IDF"})
+            retr = pt.BatchRetrieve(self.idx_datasets, controls={"wmodel": "TF_IDF"})
             retr.setControl("wmodel", "TF_IDF")
             retr.setControls({"wmodel": "TF_IDF"})
             res = retr.transform(topics)
@@ -83,6 +91,18 @@ class Recommender(object):
     def recommend_publications(self, item_id, page, rpp):
 
         itemlist = []
+
+        doc_title = self.title_lookup.get(item_id)
+        doc_title = re.sub(r'[^\w\s]', ' ', doc_title)
+        doc_title = unidecode.unidecode(doc_title)
+
+        if doc_title is not None:
+            topics = pd.DataFrame.from_dict({'qid': [0], 'query': [doc_title]})
+            retr = pt.BatchRetrieve(self.idx_publications, controls={"wmodel": "TF_IDF"})
+            retr.setControl("wmodel", "TF_IDF")
+            retr.setControls({"wmodel": "TF_IDF"})
+            res = retr.transform(topics)
+            itemlist = list(res['docno'][page*rpp:(page+1)*rpp])
 
         return {
             'page': page,

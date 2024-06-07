@@ -3,20 +3,20 @@ import jsonlines
 import pandas as pd
 import unidecode
 import pyterrier as pt
+
+
 if not pt.started():
     pt.init()
-
-
 
 
 def _gesis_doc_iter(path):
     with jsonlines.open(path) as reader:
         for obj in reader:
-            title = obj.get('title') or ''
+            title = obj.get("title") or ""
             title = title[0] if type(title) is list else title
-            abstract = obj.get('abstract') or ''
+            abstract = obj.get("abstract") or ""
             abstract = abstract[0] if type(abstract) is list else abstract
-            yield {'docno': obj.get('id'), 'text': ' '.join([title, abstract])}
+            yield {"docno": obj.get("id"), "text": " ".join([title, abstract])}
 
 
 class Ranker(object):
@@ -32,11 +32,11 @@ class Ranker(object):
         itemlist = []
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'query': query,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "query": query,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }
 
 
@@ -48,44 +48,44 @@ class Recommender(object):
         self.title_lookup = {}
 
     def index(self):
-        iter_indexer = pt.IterDictIndexer("./index/publications")
-        doc_iter = _gesis_doc_iter('./data/gesis-search/documents/publication.jsonl')
+        iter_indexer = pt.IterDictIndexer("./index/publications", meta={"docno": 100})
+        doc_iter = _gesis_doc_iter("./data/gesis-search/documents/publication.jsonl")
         indexref = iter_indexer.index(doc_iter)
         self.idx_publications = pt.IndexFactory.of(indexref)
 
-
-        iter_indexer = pt.IterDictIndexer("./index/datasets")
-        doc_iter = _gesis_doc_iter('./data/gesis-search/datasets/dataset.jsonl')
+        iter_indexer = pt.IterDictIndexer("./index/datasets", meta={"docno": 100})
+        doc_iter = _gesis_doc_iter("./data/gesis-search/datasets/dataset.jsonl")
         indexref = iter_indexer.index(doc_iter)
         self.idx_datasets = pt.IndexFactory.of(indexref)
 
-
-        with jsonlines.open('./data/gesis-search/documents/publication.jsonl') as reader:
+        with jsonlines.open(
+            "./data/gesis-search/documents/publication.jsonl"
+        ) as reader:
             for obj in reader:
-                self.title_lookup[obj.get('id')] = obj.get('title')
+                self.title_lookup[obj.get("id")] = obj.get("title")
 
     def recommend_datasets(self, item_id, page, rpp):
 
         itemlist = []
 
         doc_title = self.title_lookup.get(item_id)
-        doc_title = re.sub(r'[^\w\s]', ' ', doc_title)
+        doc_title = re.sub(r"[^\w\s]", " ", doc_title)
         doc_title = unidecode.unidecode(doc_title)
 
         if doc_title is not None:
-            topics = pd.DataFrame.from_dict({'qid': [0], 'query': [doc_title]})
+            topics = pd.DataFrame.from_dict({"qid": [0], "query": [doc_title]})
             retr = pt.BatchRetrieve(self.idx_datasets, controls={"wmodel": "TF_IDF"})
             retr.setControl("wmodel", "TF_IDF")
             retr.setControls({"wmodel": "TF_IDF"})
             res = retr.transform(topics)
-            itemlist = list(res['docno'][page*rpp:(page+1)*rpp])
+            itemlist = list(res["docno"][page * rpp : (page + 1) * rpp])
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'item_id': item_id,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "item_id": item_id,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }
 
     def recommend_publications(self, item_id, page, rpp):
@@ -93,21 +93,23 @@ class Recommender(object):
         itemlist = []
 
         doc_title = self.title_lookup.get(item_id)
-        doc_title = re.sub(r'[^\w\s]', ' ', doc_title)
+        doc_title = re.sub(r"[^\w\s]", " ", doc_title)
         doc_title = unidecode.unidecode(doc_title)
 
         if doc_title is not None:
-            topics = pd.DataFrame.from_dict({'qid': [0], 'query': [doc_title]})
-            retr = pt.BatchRetrieve(self.idx_publications, controls={"wmodel": "TF_IDF"})
+            topics = pd.DataFrame.from_dict({"qid": [0], "query": [doc_title]})
+            retr = pt.BatchRetrieve(
+                self.idx_publications, controls={"wmodel": "TF_IDF"}
+            )
             retr.setControl("wmodel", "TF_IDF")
             retr.setControls({"wmodel": "TF_IDF"})
             res = retr.transform(topics)
-            itemlist = list(res['docno'][page*rpp:(page+1)*rpp])
+            itemlist = list(res["docno"][page * rpp : (page + 1) * rpp])
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'item_id': item_id,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "item_id": item_id,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }

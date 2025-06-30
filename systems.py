@@ -1,9 +1,9 @@
 import re
+
 import jsonlines
 import pandas as pd
-import unidecode
 import pyterrier as pt
-
+import unidecode
 
 if not pt.started():
     pt.init()
@@ -53,43 +53,13 @@ class Recommender(object):
         indexref = iter_indexer.index(doc_iter)
         self.idx_publications = pt.IndexFactory.of(indexref)
 
-        iter_indexer = pt.IterDictIndexer("./index/datasets", meta={"docno": 100})
-        doc_iter = _gesis_doc_iter("./data/gesis-search/datasets/dataset.jsonl")
-        indexref = iter_indexer.index(doc_iter)
-        self.idx_datasets = pt.IndexFactory.of(indexref)
-
         with jsonlines.open(
             "./data/gesis-search/documents/publication.jsonl"
         ) as reader:
             for obj in reader:
                 self.title_lookup[obj.get("id")] = obj.get("title")
 
-    def recommend_datasets(self, item_id, page, rpp):
-
-        itemlist = []
-
-        doc_title = self.title_lookup.get(item_id)
-        doc_title = re.sub(r"[^\w\s]", " ", doc_title)
-        doc_title = unidecode.unidecode(doc_title)
-
-        if doc_title is not None:
-            topics = pd.DataFrame.from_dict({"qid": [0], "query": [doc_title]})
-            retr = pt.BatchRetrieve(self.idx_datasets, controls={"wmodel": "TF_IDF"})
-            retr.setControl("wmodel", "TF_IDF")
-            retr.setControls({"wmodel": "TF_IDF"})
-            res = retr.transform(topics)
-            itemlist = list(res["docno"][page * rpp : (page + 1) * rpp])
-
-        return {
-            "page": page,
-            "rpp": rpp,
-            "item_id": item_id,
-            "itemlist": itemlist,
-            "num_found": len(itemlist),
-        }
-
-    def recommend_publications(self, item_id, page, rpp):
-
+    def recommend(self, item_id, page, rpp):
         itemlist = []
 
         doc_title = self.title_lookup.get(item_id)
